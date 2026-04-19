@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma I.E. — Monitoreo 2024</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; color: #0f172a; }
+        .card-shadow { box-shadow: 0 4px 16px -2px rgba(0,0,0,0.06), 0 2px 6px -2px rgba(0,0,0,0.04); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+        /* Loading overlay */
+        #loadingOverlay { transition: opacity 0.5s; }
+
+        /* Alert card styles — sólidos para máxima legibilidad sobre fondo oscuro */
+        .alert-card { border-radius: 14px; padding: 13px 15px; margin-bottom: 10px; }
+        .alert-danger  { background: #7f1d1d; border: 1px solid #ef4444; }
+        .alert-warning { background: #78350f; border: 1px solid #f59e0b; }
+        .alert-info    { background: #1e3a5f; border: 1px solid #3b82f6; }
+        .alert-success { background: #064e3b; border: 1px solid #10b981; }
+        .alert-neutral { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); }
+
+        .alert-title-danger  { color: #fca5a5; }
+        .alert-title-warning { color: #fde68a; }
+        .alert-title-info    { color: #93c5fd; }
+        .alert-title-success { color: #6ee7b7; }
+        .alert-title-neutral { color: #cbd5e1; }
+
+        .alert-card p { color: #f1f5f9 !important; }
+        .alert-card .alert-sub { color: #cbd5e1 !important; }
+
+        /* Progress bar */
+        .progress-bar-bg { background: rgba(255,255,255,0.1); border-radius: 9999px; height: 6px; margin-top: 6px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.8s ease; }
+
+        /* CNEB card */
+        .cneb-tag { display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 10px; font-weight: 800; border-radius: 8px; padding: 4px 10px; letter-spacing: .05em; text-transform: uppercase; }
+        .cneb-competencia-chip { display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; font-size: 10px; font-weight: 700; border-radius: 6px; padding: 3px 8px; }
+
+        .nivel-bar { display: flex; gap: 3px; margin-top: 8px; }
+        .nivel-pip { flex: 1; height: 5px; border-radius: 4px; background: #e2e8f0; }
+        .nivel-pip.active-C  { background: #ef4444; }
+        .nivel-pip.active-B  { background: #f59e0b; }
+        .nivel-pip.active-A  { background: #3b82f6; }
+        .nivel-pip.active-AD { background: #1e40af; }
+
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .fade-in { animation: fadeInUp 0.35s ease both; }
+        /* ══════════════════════════════════════════
+           ESTILOS DE IMPRESIÓN — A4
+        ══════════════════════════════════════════ */
+        /* ═══════════════════════════════════════════════════
+           IMPRESIÓN A4 — Layout completamente lineal
+           Estrategia: todo en 1 columna, sin grids complejos,
+           alturas de canvas fijas con width/height en px via JS
+        ═══════════════════════════════════════════════════ */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 10mm 12mm 10mm 12mm;
+            }
+
+            /* ── Ocultar todo lo que no es contenido ── */
+            aside,
+            #loadingOverlay,
+            .no-print { display: none !important; }
+
+            /* ── Reset de layout base ── */
+            * { box-sizing: border-box !important; }
+            body {
+                background: white !important;
+                font-size: 8.5pt !important;
+                color: #0f172a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* ── Contenedor principal: bloque lineal ── */
+            .flex.min-h-screen { display: block !important; }
+            main {
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow: visible !important;
+            }
+
+            /* ── Header ── */
+            header {
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                border-bottom: 2pt solid #1d4ed8 !important;
+                padding-bottom: 5pt !important;
+                margin-bottom: 8pt !important;
+                gap: 0 !important;
+            }
+            header > div:last-child { display: none !important; }
+            #currentAreaName { font-size: 18pt !important; font-weight: 900 !important; }
+            #studentCountLabel { font-size: 8pt !important; color: #64748b !important; margin-top: 2pt !important; }
+
+            /* ── Grid de competencias: fila horizontal ── */
+            #compStatsGrid {
+                display: flex !important;
+                flex-direction: row !important;
+                gap: 4pt !important;
+                margin-bottom: 6pt !important;
+                width: 100% !important;
+            }
+            #compStatsGrid > div {
+                flex: 1 !important;
+                padding: 5pt 6pt !important;
+                border-radius: 5pt !important;
+                border: 1pt solid #e2e8f0 !important;
+                min-height: auto !important;
+                box-shadow: none !important;
+                transform: none !important;
+                page-break-inside: avoid !important;
+            }
+            #compStatsGrid > div.bg-blue-700 {
+                background: #1d4ed8 !important;
+                color: white !important;
+            }
+            #compStatsGrid > div p  { font-size: 6.5pt !important; margin: 0 !important; }
+            #compStatsGrid > div h4 { font-size: 7pt !important; font-weight: 700 !important; margin: 2pt 0 !important; line-height: 1.2 !important; }
+            #compStatsGrid > div .flex { display: none !important; }  /* ocultar "Ver detalle" */
+
+            /* ── Contenedor principal: bloque lineal estricto ── */
+            #mainGrid {
+                display: block !important;
+                width: 100% !important;
+            }
+
+            /* ── Cada sección: bloque completo ── */
+            #mainGrid > div {
+                display: block !important;
+                width: 100% !important;
+                margin-bottom: 6pt !important;
+                padding: 8pt 10pt !important;
+                border-radius: 6pt !important;
+                border: 1pt solid #e2e8f0 !important;
+                box-shadow: none !important;
+                page-break-inside: avoid !important;
+            }
+
+            /* ── Trayectoria de Logro: canvas controlado ── */
+            #chartWrapper {
+                width: 100% !important;
+                height: 140pt !important;
+                position: relative !important;
+            }
+            #chartWrapper canvas {
+                width: 100% !important;
+                height: 140pt !important;
+            }
+
+            /* ── Fila Distribución + Alertas: lado a lado ── */
+            #rowDistAlert {
+                display: flex !important;
+                gap: 6pt !important;
+                margin-bottom: 6pt !important;
+                page-break-inside: avoid !important;
+            }
+            #rowDistAlert > div {
+                flex: 1 !important;
+                padding: 8pt 10pt !important;
+                border-radius: 6pt !important;
+                border: 1pt solid #e2e8f0 !important;
+                box-shadow: none !important;
+            }
+
+            /* ── Distribución Real ── */
+            #distChartWrapper {
+                width: 100pt !important;
+                height: 100pt !important;
+                margin: 0 auto 6pt auto !important;
+                position: relative !important;
+            }
+            #distChartWrapper canvas {
+                width: 100pt !important;
+                height: 100pt !important;
+            }
+            #distributionLegend {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 2pt !important;
+            }
+            #distributionLegend > div {
+                padding: 2pt 4pt !important;
+                font-size: 7pt !important;
+            }
+
+            /* ── Panel de Alertas: fondo claro ── */
+            #alertPanel {
+                background: #f8fafc !important;
+                color: #0f172a !important;
+                border: 1pt solid #cbd5e1 !important;
+            }
+            #alertPanel * { color: #0f172a !important; }
+            #alertPanel h3 { font-size: 10pt !important; }
+            #alertPanel > .flex:first-child > div:first-child { display: none !important; } /* icono azul */
+            #alertKpis {
+                display: flex !important;
+                gap: 3pt !important;
+                margin-bottom: 5pt !important;
+            }
+            #alertKpis > div {
+                flex: 1 !important;
+                padding: 4pt !important;
+                border-radius: 4pt !important;
+                border: 1pt solid #e2e8f0 !important;
+                text-align: center !important;
+            }
+            #alertProgressSection { margin-bottom: 5pt !important; padding: 5pt !important; }
+            .progress-bar-bg { background: #e2e8f0 !important; }
+
+            /* ── Alert cards ── */
+            .alert-card {
+                padding: 5pt 7pt !important;
+                margin-bottom: 4pt !important;
+                border-radius: 5pt !important;
+            }
+            .alert-danger  { background: #fef2f2 !important; border: 1pt solid #fca5a5 !important; }
+            .alert-warning { background: #fffbeb !important; border: 1pt solid #fcd34d !important; }
+            .alert-success { background: #f0fdf4 !important; border: 1pt solid #86efac !important; }
+            .alert-info    { background: #eff6ff !important; border: 1pt solid #93c5fd !important; }
+            .alert-neutral { background: #f8fafc !important; border: 1pt solid #cbd5e1 !important; }
+            .alert-card p  { font-size: 7.5pt !important; color: #1e293b !important; }
+            .alert-title-danger, .alert-title-warning,
+            .alert-title-success, .alert-title-info,
+            .alert-title-neutral { font-size: 7pt !important; color: #1e293b !important; }
+
+            /* ── Tarjeta CNEB ── */
+            #cnebCard {
+                display: block !important;
+                width: 100% !important;
+                padding: 8pt 10pt !important;
+                border: 1pt solid #e2e8f0 !important;
+                border-radius: 6pt !important;
+                box-shadow: none !important;
+                margin-bottom: 6pt !important;
+            }
+            #cnebCard .bg-blue-50  { background: #eff6ff !important; border: 1pt solid #bfdbfe !important; }
+            #cnebCard .bg-slate-50 { background: #f8fafc !important; border: 1pt solid #e2e8f0 !important; }
+            #cnebCard .bg-emerald-50 { background: #f0fdf4 !important; border: 1pt solid #bbf7d0 !important; }
+            #cnebCard .grid.grid-cols-4 > div { border: 1pt solid #e2e8f0 !important; }
+            #cnebCard p, #cnebCard span { font-size: 8pt !important; }
+            #cnebCard h3 { font-size: 9pt !important; }
+
+
+            /* ── mainGrid: bloque lineal estricto en print ── */
+            #mainGrid {
+                display: block !important;
+                width: 100% !important;
+            }
+            #mainGrid > div {
+                float: none !important;
+                display: block !important;
+                width: 100% !important;
+                margin-bottom: 6pt !important;
+            }
+
+            /* ── Distribución Real + Alertas: lado a lado ── */
+            #distCard, #alertPanel {
+                display: inline-block !important;
+                width: 48% !important;
+                vertical-align: top !important;
+                margin-right: 1% !important;
+                margin-bottom: 6pt !important;
+            }
+            #alertPanel { margin-right: 0 !important; margin-left: 1% !important; }
+
+            /* ── CNEB siempre a ancho completo ── */
+            #cnebCard {
+                display: block !important;
+                width: 100% !important;
+            }
+            /* ── Botón imprimir y controles ── */
+            #printBtn { display: none !important; }
+
+            /* ── Pie de página ── */
+            .print-footer {
+                display: block !important;
+                text-align: center !important;
+                font-size: 7pt !important;
+                color: #64748b !important;
+                margin-top: 6pt !important;
+                border-top: 1pt solid #e2e8f0 !important;
+                padding-top: 3pt !important;
+            }
+        }
+
+        /* Ocultar pie de página en pantalla */
+        .print-footer { display: none; }
+
+    </style>
+</head>
+<body class="bg-slate-100">
+
+<div id="loadingOverlay" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+    <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+    <h2 class="text-base font-bold text-slate-700 text-center px-6">Analizando +1500 Registros...</h2>
+    <p class="text-xs text-slate-400 mt-1">Sincronizando con Google Sheets</p>
+</div>
+
+<div class="flex min-h-screen">
+
+    <!-- ══════════════ SIDEBAR ══════════════ -->
+    <aside class="w-64 bg-white border-r border-slate-200 p-6 flex flex-col hidden lg:flex shrink-0">
+        <div class="mb-10 flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl">P</div>
+            <div>
+                <h2 class="font-bold text-sm leading-none text-slate-900">Plataforma I.E.</h2>
+                <p class="text-[10px] text-blue-600 font-black uppercase mt-1 tracking-widest">Monitoreo 2024</p>
+            </div>
+        </div>
+        <nav class="space-y-1 flex-1 overflow-y-auto custom-scrollbar" id="areaNav">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Áreas Curriculares</p>
+        </nav>
+    </aside>
+
+    <!-- ══════════════ MAIN CONTENT ══════════════ -->
+    <main class="flex-1 p-4 md:p-8 max-w-full overflow-x-hidden">
+
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight" id="currentAreaName">Cargando…</h1>
+                <p class="text-slate-400 text-sm mt-1" id="studentCountLabel">Procesando población escolar…</p>
+            </div>
+            <div class="flex items-end gap-3 w-full md:w-auto">
+                <div class="flex flex-col gap-1 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex-1 md:flex-none">
+                    <label class="text-[9px] font-black text-slate-400 uppercase ml-1 mb-1 tracking-widest">Vista Individual (Opcional)</label>
+                    <select id="alumnoFilter" onchange="renderAll()" class="bg-transparent text-slate-700 font-bold text-sm outline-none min-w-[250px] cursor-pointer">
+                        <option value="all">📊 Resultados Consolidados del Grado</option>
+                    </select>
+                </div>
+                <button id="printBtn" onclick="printReport()"
+                    class="no-print flex items-center gap-2 bg-blue-700 hover:bg-blue-800 active:scale-95 text-white font-bold text-sm px-5 py-3 rounded-2xl shadow-md transition-all whitespace-nowrap"
+                    title="Imprimir reporte en A4">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    Imprimir A4
+                </button>
+            </div>
+        </header>
+
+        <!-- Grid de Competencias -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="compStatsGrid"></div>
+
+        <!-- ID mainGrid: usado por @media print para layout lineal -->
+        <div id="mainGrid" class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+            <!-- Trayectoria de Logro -->
+            <div class="xl:col-span-8 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-200 card-shadow">
+                <div class="mb-6">
+                    <h3 class="font-bold text-lg text-slate-800">Trayectoria de Logro</h3>
+                    <p class="text-xs text-slate-400">Evolución de promedios por sesión</p>
+                </div>
+                <!-- id="chartWrapper" para controlar altura exacta en print -->
+                <div class="h-[300px]" id="chartWrapper">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Fila Distribución + Alertas juntas en print (id="rowDistAlert") -->
+            <!-- En pantalla son celdas separadas del grid; en print son un flex row -->
+            <!-- Distribución Real -->
+            <div class="xl:col-span-4 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-200 card-shadow" id="distCard">
+                <h3 class="font-bold text-lg text-slate-800 mb-1">Distribución Real</h3>
+                <p class="text-xs text-slate-400 mb-5">Estado actual según última sesión</p>
+                <!-- id="distChartWrapper" para altura exacta en print -->
+                <div class="h-[200px] flex items-center justify-center mb-5" id="distChartWrapper">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+                <div id="distributionLegend" class="grid grid-cols-2 gap-2"></div>
+            </div>
+
+            <!-- ══════════ ANÁLISIS DE ALERTA ══════════ -->
+            <div class="xl:col-span-4 bg-slate-900 text-white p-7 rounded-[2.5rem] shadow-2xl flex flex-col" id="alertPanel">
+                <div class="flex items-center gap-3 mb-5">
+                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">Análisis de Alerta</h3>
+                        <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Diagnóstico automático</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-4 gap-2 mb-5" id="alertKpis"></div>
+                <div id="alertProgressSection" class="mb-5 p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Logro Satisfactorio (A + AD)</span>
+                        <span class="text-sm font-black text-white" id="alertPercent">—</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill bg-blue-500" id="alertProgressBar" style="width:0%"></div>
+                    </div>
+                </div>
+                <div id="findingsPanel" class="flex-1 space-y-0 overflow-y-auto custom-scrollbar pr-1"></div>
+            </div>
+
+            <!-- ══════════ TARJETA CNEB ══════════ -->
+            <div class="xl:col-span-8 bg-white p-7 rounded-[2.5rem] border border-slate-200 card-shadow" id="cnebCard">
+                <div class="flex flex-wrap items-center gap-3 mb-5">
+                    <span class="cneb-tag">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        CNEB 2024
+                    </span>
+                    <h3 class="font-bold text-slate-800 text-base flex-1" id="standardCompLabel">Referente Curricular</h3>
+                </div>
+                <div id="standardContent">
+                    <p class="text-sm text-slate-400 italic">Seleccione una competencia para visualizar el estándar del CNEB.</p>
+                </div>
+            </div>
+
+        </div><!-- /mainGrid -->
+    <!-- Pie de página solo visible al imprimir -->
+    <div class="print-footer" id="printFooter">
+        Plataforma I.E. — Monitoreo 2024 &nbsp;|&nbsp; Generado el <span id="printDate"></span>
+    </div>
+    </main>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  CONFIGURACIÓN
+// ─────────────────────────────────────────────
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ72c-5lHs3CMtUmD8iw0U3nSwNKbTzN_SBlGxIkV_8YSOd1vNSXvM1Uf15xLP1aMrhMZYHVvynP-LV/pub?gid=417729985&single=true&output=csv";
+
+// ─────────────────────────────────────────────
+//  CURRÍCULUM COMPLETO (CNEB) — todas las áreas
+// ─────────────────────────────────────────────
+const MASTER_CURRICULUM = {
+    "MATEMÁTICA": {
+        keys: ["cantidad","regularidad","forma","datos","gestión","movimiento","localización","equivalencia"],
+        competencias: {
+            "cantidad": {
+                nombre: "Resuelve problemas de cantidad",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Resuelve problemas referidos a acciones de juntar, separar, agregar, quitar, igualar y comparar cantidades; y las traduce a expresiones de adición y sustracción, doble y mitad. Expresa su comprensión del valor de posición en números de dos cifras y la noción de centena.",
+                capacidades: ["Traduce cantidades a expresiones numéricas","Comunica su comprensión sobre los números y las operaciones","Usa estrategias y procedimientos de estimación y cálculo","Argumenta afirmaciones sobre las relaciones numéricas y las operaciones"],
+                enfoque: "Resolución de problemas con énfasis en el sentido numérico y el razonamiento cuantitativo."
+            },
+            "regularidad": {
+                nombre: "Resuelve problemas de regularidad, equivalencia y cambio",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Resuelve problemas que presentan equivalencias o regularidades; las traduce a igualdades que contienen adiciones o sustracciones, a patrones de repetición o a patrones aditivos. Expresa su comprensión de la equivalencia como equilibrio e igualdad entre expresiones numéricas.",
+                capacidades: ["Traduce datos y condiciones a expresiones algebraicas","Comunica su comprensión sobre las relaciones algebraicas","Usa estrategias y procedimientos para encontrar reglas generales","Argumenta afirmaciones sobre relaciones de cambio y equivalencia"],
+                enfoque: "Pensamiento algebraico temprano a través del reconocimiento de patrones y relaciones de equivalencia."
+            },
+            "forma": {
+                nombre: "Resuelve problemas de forma, movimiento y localización",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Resuelve problemas en los que modela las características y datos de ubicación de los objetos a formas bidimensionales y tridimensionales. Describe estas formas usando sus elementos: lados, vértices, caras y aristas.",
+                capacidades: ["Modela objetos con formas geométricas y sus transformaciones","Comunica su comprensión sobre las formas y relaciones geométricas","Usa estrategias y procedimientos para orientarse en el espacio","Argumenta afirmaciones sobre relaciones geométricas"],
+                enfoque: "Geometría y medición con énfasis en la visualización espacial y la ubicación."
+            },
+            "datos": {
+                nombre: "Resuelve problemas de gestión de datos e incertidumbre",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Resuelve problemas recolectando datos cualitativos o cuantitativos discretos mediante encuestas sencillas. Los representa en pictogramas y gráficos de barras simples e interpreta la información contenida en ellos.",
+                capacidades: ["Representa datos con gráficos y medidas estadísticas o probabilísticas","Comunica su comprensión de los conceptos estadísticos y probabilísticos","Usa estrategias y procedimientos para recopilar y procesar datos","Sustenta conclusiones o decisiones en base a información obtenida"],
+                enfoque: "Estadística y probabilidad orientada a la toma de decisiones informadas desde la infancia."
+            }
+        }
+    },
+    "COMUNICACIÓN": {
+        keys: ["oral","oralmente","lee","leer","escribe","escribir","texto"],
+        competencias: {
+            "oral": {
+                nombre: "Se comunica oralmente en su lengua materna",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Se comunica oralmente mediante diversos tipos de textos; identifica información explícita, infiere e interpreta hechos y temas. Desarrolla sus ideas manteniéndose en el tema, usa vocabulario pertinente y recursos no verbales. Reflexiona sobre los textos escuchados.",
+                capacidades: ["Obtiene información del texto oral","Infiere e interpreta información del texto oral","Adecúa, organiza y desarrolla las ideas de forma coherente","Utiliza recursos no verbales y paraverbales","Interactúa estratégicamente con distintos interlocutores","Reflexiona y evalúa la forma, el contenido y contexto del texto oral"],
+                enfoque: "Comunicación oral con énfasis en la escucha activa y la expresión clara de ideas."
+            },
+            "lee": {
+                nombre: "Lee diversos tipos de textos escritos en su lengua materna",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Lee diversos tipos de textos de estructura simple con vocabulario variado. Obtiene información poco evidente distinguiéndola de otras próximas y semejantes. Infiere el sentido global del texto y la intención del autor apoyándose en información del texto y en su experiencia previa.",
+                capacidades: ["Obtiene información del texto escrito","Infiere e interpreta información del texto","Reflexiona y evalúa la forma, el contenido y contexto del texto"],
+                enfoque: "Comprensión lectora como base del aprendizaje autónomo y el pensamiento crítico."
+            },
+            "escribe": {
+                nombre: "Escribe diversos tipos de textos en su lengua materna",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Escribe diversos tipos de textos de forma reflexiva. Adecúa su texto al destinatario, propósito y registro formal o informal a partir de su experiencia previa. Organiza y desarrolla lógicamente las ideas. Usa recursos ortográficos básicos.",
+                capacidades: ["Adecúa el texto a la situación comunicativa","Organiza y desarrolla las ideas de forma coherente y cohesionada","Utiliza convenciones del lenguaje escrito de forma pertinente","Reflexiona y evalúa la forma, el contenido y contexto del texto escrito"],
+                enfoque: "Escritura como proceso social orientado a comunicar ideas con propósito y audiencia claros."
+            }
+        }
+    },
+    "PERSONAL SOCIAL": {
+        keys: ["identidad","convive","construye","historia","gestiona","emociones"],
+        competencias: {
+            "identidad": {
+                nombre: "Construye su identidad",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Construye su identidad al reconocer sus características físicas, cualidades e intereses. Explica las causas y consecuencias de sus emociones y utiliza estrategias de autorregulación. Se reconoce como parte de su familia y comunidad.",
+                capacidades: ["Se valora a sí mismo","Autorregula sus emociones","Reflexiona y argumenta éticamente","Vive su sexualidad de manera plena y responsable"],
+                enfoque: "Desarrollo personal centrado en el autoconocimiento, la autoestima y la regulación emocional."
+            },
+            "convive": {
+                nombre: "Convive y participa democráticamente",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Convive y participa democráticamente cuando se relaciona con los demás respetando las diferencias y cumpliendo sus deberes. Delibera sobre asuntos de interés común y construye acuerdos con sus pares.",
+                capacidades: ["Interactúa con todas las personas","Construye normas y asume acuerdos y leyes","Maneja conflictos de manera constructiva","Delibera sobre asuntos públicos","Participa en acciones que promueven el bienestar común"],
+                enfoque: "Ciudadanía democrática con base en el respeto, la empatía y la participación activa."
+            },
+            "construye": {
+                nombre: "Construye interpretaciones históricas",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Construye interpretaciones históricas en las que describe cambios y permanencias en su vida personal, familiar y en objetos del entorno a través del tiempo. Usa fuentes sencillas y nociones temporales básicas.",
+                capacidades: ["Interpreta críticamente fuentes diversas","Comprende el tiempo histórico","Elabora explicaciones sobre procesos históricos"],
+                enfoque: "Pensamiento histórico inicial orientado al reconocimiento del tiempo personal y comunitario."
+            }
+        }
+    },
+    "CIENCIA Y TECNOLOGÍA": {
+        keys: ["indaga","explica","diseña","conocimiento"],
+        competencias: {
+            "indaga": {
+                nombre: "Indaga mediante métodos científicos para construir conocimientos",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Indaga sobre el funcionamiento y características de los seres vivos, el ambiente y la materia. Diseña estrategias para hacer una indagación, obtiene datos y los analiza para obtener conclusiones sencillas.",
+                capacidades: ["Problematiza situaciones","Diseña estrategias para hacer indagación","Genera y registra datos e información","Analiza datos e información","Evalúa y comunica el proceso y resultados de su indagación"],
+                enfoque: "Cultura científica basada en la curiosidad, la observación sistemática y el razonamiento."
+            },
+            "explica": {
+                nombre: "Explica el mundo físico basándose en conocimientos sobre los seres vivos y la materia",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Explica, con base en evidencias, el funcionamiento de los seres vivos, sus interacciones y las características de los materiales y la energía. Comprende y usa conocimientos sobre el mundo natural.",
+                capacidades: ["Comprende y usa conocimientos sobre los seres vivos, materia y energía, biodiversidad, Tierra y universo","Evalúa las implicancias del saber y del quehacer científico y tecnológico"],
+                enfoque: "Comprensión del mundo natural como sistema de relaciones que el estudiante puede observar y explicar."
+            },
+            "diseña": {
+                nombre: "Diseña y construye soluciones tecnológicas",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Diseña y construye soluciones tecnológicas para resolver problemas de su entorno. Determina el problema, diseña alternativas de solución, implementa y valida el funcionamiento de su solución.",
+                capacidades: ["Determina una alternativa de solución tecnológica","Diseña la alternativa de solución tecnológica","Implementa y valida alternativas de solución tecnológica","Evalúa y comunica el funcionamiento y los impactos de su solución tecnológica"],
+                enfoque: "Pensamiento de diseño y resolución de problemas con recursos del entorno."
+            }
+        }
+    },
+    "ARTE Y CULTURA": {
+        keys: ["aprecia","crea","contexto"],
+        competencias: {
+            "aprecia": {
+                nombre: "Aprecia de manera crítica manifestaciones artístico-culturales",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Aprecia críticamente diversas manifestaciones artísticas y culturales de su entorno local y de otras regiones del Perú. Describe las características de los elementos visuales, sonoros y corporales, y los relaciona con el contexto en que fueron creados.",
+                capacidades: ["Percibe manifestaciones artístico-culturales","Contextualiza las manifestaciones culturales","Reflexiona creativa y críticamente"],
+                enfoque: "Sensibilidad estética y valoración de la diversidad cultural peruana e internacional."
+            },
+            "crea": {
+                nombre: "Crea proyectos desde los lenguajes artísticos",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Crea proyectos artísticos individuales o colectivos usando los lenguajes visual, corporal, musical y dramático. Explora materiales y recursos expresivos, toma decisiones creativas y comunica ideas, experiencias y emociones.",
+                capacidades: ["Explora y experimenta los lenguajes del arte","Aplica procesos creativos","Socializa sus procesos y proyectos"],
+                enfoque: "Expresión creativa como medio de comunicación de ideas, emociones e identidad cultural."
+            }
+        }
+    },
+    "EDUCACIÓN RELIGIOSA": {
+        keys: ["conoce","transforma","fe","dios"],
+        competencias: {
+            "conoce": {
+                nombre: "Construye su identidad como persona humana, amada por Dios",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Construye su identidad como persona humana, amada por Dios, digna, libre y trascendente. Comprende la doctrina de su propia religión, abierto al diálogo con las que le son cercanas.",
+                capacidades: ["Conoce a Dios y asume su identidad religiosa y espiritual","Cultiva y valora las manifestaciones religiosas de su entorno argumentando su fe de manera comprensible y respetuosa"],
+                enfoque: "Formación integral desde una perspectiva espiritual y ética basada en la dignidad humana."
+            },
+            "transforma": {
+                nombre: "Asume la experiencia del encuentro personal y comunitario con Dios",
+                ciclo: "III (3.° y 4.° grado)",
+                descripcion: "Asume la experiencia del encuentro personal y comunitario con Dios en su proyecto de vida, desde la fe que profesa. Actúa coherentemente en razón de su fe según los principios de su conciencia moral.",
+                capacidades: ["Actúa coherentemente en razón de su fe según los principios de su conciencia moral","Transforma su entorno desde el encuentro personal y comunitario con Dios y desde la fe que profesa"],
+                enfoque: "Integración de la fe en la vida cotidiana y el servicio a la comunidad."
+            }
+        }
+    }
+};
+
+const noteToNum   = { "AD": 4, "A": 3, "B": 2, "C": 1 };
+const numToNote   = { 4: "AD", 3: "A", 2: "B", 1: "C" };
+const colorPalette= { "AD": "#1e40af", "A": "#3b82f6", "B": "#f59e0b", "C": "#ef4444" };
+const levelMeta   = {
+    "AD": { label: "Sobresaliente", bg: "#dbeafe", text: "#1e40af", pip: "active-AD" },
+    "A":  { label: "Logrado",       bg: "#eff6ff", text: "#2563eb", pip: "active-A"  },
+    "B":  { label: "En Proceso",    bg: "#fef9c3", text: "#b45309", pip: "active-B"  },
+    "C":  { label: "Inicio",        bg: "#fee2e2", text: "#b91c1c", pip: "active-C"  }
+};
+
+let store = { rawData: [], alumnos: [], areas: {} };
+let currentArea = "";
+let activeCompIndex = "total";
+let charts = { main: null, dist: null };
+
+// ─────────────────────────────────────────────
+//  INICIALIZACIÓN
+// ─────────────────────────────────────────────
+async function init() {
+    try {
+        const res  = await fetch(CSV_URL);
+        const text = await res.text();
+        processData(text);
+    } catch (e) {
+        console.error("Error cargando CSV:", e);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+}
+
+function processData(csvText) {
+    const rows = csvText.split(/\r?\n/).map(row => {
+        const m = row.match(/(".*?"|[^",\r\n]+)(?=\s*,|\s*$)/g);
+        return m ? m.map(v => v.replace(/^"|"$/g, '').trim()) : [];
+    }).filter(r => r.length > 3);
+
+    const headers = rows[0].map(h => h.toLowerCase());
+    const gi = n => headers.findIndex(h => h.includes(n));
+    const idx = { alu: gi("alumno"), area: gi("area"), comp: gi("competencia"), ses: gi("sesion"), nota: gi("calif") };
+
+    const alusSet = new Set();
+
+    rows.slice(1).forEach(row => {
+        const area = row[idx.area], comp = row[idx.comp], alu = row[idx.alu];
+        const ses  = parseInt(row[idx.ses]);
+        const nota = (row[idx.nota] || "").toUpperCase().trim();
+        if (!area || !alu || !nota || !noteToNum[nota]) return;
+        alusSet.add(alu);
+
+        if (!store.areas[area]) store.areas[area] = { nombre: area, competencias: {} };
+        if (!store.areas[area].competencias[comp]) store.areas[area].competencias[comp] = { nombre: comp, data: [] };
+        store.areas[area].competencias[comp].data.push({ alu, ses, nota, val: noteToNum[nota] });
+    });
+
+    store.alumnos = Array.from(alusSet).sort();
+
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.style.display = 'none', 500);
+    setupNavigation();
+}
+
+// ─────────────────────────────────────────────
+//  NAVEGACIÓN
+// ─────────────────────────────────────────────
+function setupNavigation() {
+    const nav = document.getElementById('areaNav');
+    const sel = document.getElementById('alumnoFilter');
+    store.alumnos.forEach(a => sel.add(new Option(`👤 ${a}`, a)));
+
+    const areaIcons = {
+        "MATEMÁTICA":"🔢","COMUNICACIÓN":"📚","PERSONAL SOCIAL":"🌱",
+        "CIENCIA Y TECNOLOGÍA":"🔬","ARTE Y CULTURA":"🎨","EDUCACIÓN RELIGIOSA":"✝️"
+    };
+
+    Object.keys(store.areas).forEach(id => {
+        const btn = document.createElement('button');
+        btn.id = `btn-${id}`;
+        btn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-[11px] font-bold text-left mb-1 text-slate-500 hover:bg-slate-50";
+        btn.onclick = () => { currentArea = id; activeCompIndex = "total"; renderAll(); };
+        const icon = Object.entries(areaIcons).find(([k]) => id.toUpperCase().includes(k))?.[1] || "📖";
+        btn.innerHTML = `<span class="text-base">${icon}</span><span class="truncate">${id}</span>`;
+        nav.appendChild(btn);
+    });
+
+    currentArea = Object.keys(store.areas)[0];
+    renderAll();
+}
+
+// ─────────────────────────────────────────────
+//  RENDER PRINCIPAL
+// ─────────────────────────────────────────────
+function renderAll() {
+    const data = store.areas[currentArea];
+    if (!data) return;
+    const stu = document.getElementById('alumnoFilter').value;
+
+    // Activar botón de nav
+    document.querySelectorAll('#areaNav button').forEach(b => {
+        b.classList.remove('bg-blue-50','text-blue-700','ring-1','ring-blue-100');
+    });
+    document.getElementById(`btn-${currentArea}`)?.classList.add('bg-blue-50','text-blue-700','ring-1','ring-blue-100');
+
+    document.getElementById('currentAreaName').textContent = data.nombre;
+    const status = getLatestStatus(data, stu);
+    document.getElementById('studentCountLabel').textContent = `${status.totalAlumnos} estudiantes evaluados en este área.`;
+
+    renderGrid(data);
+    renderMainChart(data, stu);
+    renderDistributionChart(status);
+    renderFindings(status, stu, data);
+    renderStandard(data);
+}
+
+// ─────────────────────────────────────────────
+//  LÓGICA DE NEGOCIO
+// ─────────────────────────────────────────────
+function avgToNota(avg) {
+    // Rangos exactos: AD=3.5-4 | A=2.6-3.4 | B=1.6-2.5 | C=0-1.5
+    if (avg >= 3.5) return "AD";
+    if (avg >= 2.6) return "A";
+    if (avg >= 1.6) return "B";
+    return "C";
+}
+
+function getLatestStatus(areaData, studentFilter) {
+    const allComps = Object.values(areaData.competencias);
+
+    const compsToAnalyze = (activeCompIndex === "total")
+        ? allComps
+        : [allComps[activeCompIndex]].filter(Boolean);
+
+    /*
+     * LÓGICA CORRECTA:
+     * Por cada competencia -> promediar TODAS las sesiones del alumno en esa competencia.
+     * Ejemplo Elif, competencia "Gestión de datos", sesiones C(1)+C(1)+B(2):
+     *   promedio competencia = (1+1+2)/3 = 1.333 -> C
+     * Luego, promedio del área = promedio de los promedios por competencia.
+     */
+    const acumByStudent = {};  // { alu: { compAvgs: [], allVals: [] } }
+
+    compsToAnalyze.forEach(c => {
+        // Agrupar TODOS los registros del alumno en esta competencia
+        const sessByAlumno = {};
+        c.data.forEach(r => {
+            if (studentFilter !== 'all' && r.alu !== studentFilter) return;
+            if (!sessByAlumno[r.alu]) sessByAlumno[r.alu] = [];
+            sessByAlumno[r.alu].push(r.val);
+        });
+
+        // Calcular promedio de todas las sesiones de esta competencia por alumno
+        Object.entries(sessByAlumno).forEach(([alu, vals]) => {
+            const compAvg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            if (!acumByStudent[alu]) acumByStudent[alu] = { compAvgs: [], allVals: [] };
+            acumByStudent[alu].compAvgs.push(compAvg);
+            acumByStudent[alu].allVals.push(...vals);
+        });
+    });
+
+    const results = {
+        AD: 0, A: 0, B: 0, C: 0,
+        totalAlumnos: Object.keys(acumByStudent).length,
+        listC: [], listB: [], listAD: [],
+        _raw: acumByStudent
+    };
+
+    Object.entries(acumByStudent).forEach(([name, d]) => {
+        // Promedio de promedios por competencia -> nivel del alumno
+        const avg  = d.compAvgs.reduce((a, b) => a + b, 0) / d.compAvgs.length;
+        const note = avgToNota(avg);
+        results[note]++;
+        if (note === "C")  results.listC.push({ name, avg: avg.toFixed(2) });
+        if (note === "B")  results.listB.push({ name, avg: avg.toFixed(2) });
+        if (note === "AD") results.listAD.push({ name, avg: avg.toFixed(2) });
+    });
+
+    return results;
+}
+
+// ─────────────────────────────────────────────
+//  GRID DE COMPETENCIAS
+// ─────────────────────────────────────────────
+function renderGrid(data) {
+    const grid = document.getElementById('compStatsGrid');
+    grid.innerHTML = '';
+    const comps = Object.values(data.competencias);
+
+    const createCard = (title, idx) => {
+        const div = document.createElement('div');
+        div.onclick = () => { activeCompIndex = idx; renderAll(); };
+        const isActive = activeCompIndex === idx;
+        div.className = `cursor-pointer p-5 rounded-3xl border-2 transition-all flex flex-col justify-between min-h-[130px] ${isActive ? 'bg-blue-700 border-blue-700 text-white scale-105 shadow-xl shadow-blue-100' : 'bg-white border-transparent hover:border-slate-200 shadow-sm text-slate-700'}`;
+        div.innerHTML = `
+            <p class="text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-blue-200' : 'text-slate-400'}">${idx === 'total' ? 'Promedio Área' : 'Competencia'}</p>
+            <h4 class="text-xs font-extrabold leading-snug mt-1 mb-3">${title}</h4>
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold ${isActive ? 'text-white' : 'text-blue-600'}">Ver detalle</span>
+                <div class="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-width="3"/></svg>
+                </div>
+            </div>`;
+        grid.appendChild(div);
+    };
+
+    createCard("Visión General del Área", 'total');
+    comps.forEach((c, i) => createCard(c.nombre, i));
+}
+
+// ─────────────────────────────────────────────
+//  GRÁFICOS
+// ─────────────────────────────────────────────
+function renderMainChart(data, stu) {
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    if (charts.main) charts.main.destroy();
+    const comps = activeCompIndex === 'total' ? Object.values(data.competencias) : [Object.values(data.competencias)[activeCompIndex]];
+    const maxS  = Math.max(...comps.flatMap(c => c.data.map(r => r.ses)), 1);
+    const labels = Array.from({length: maxS}, (_, i) => `S${i+1}`);
+
+    const getSeries = sId => labels.map((_, i) => {
+        const s = i + 1;
+        let vals = [];
+        comps.forEach(c => {
+            const found = c.data.filter(r => r.ses === s && (sId === 'all' || r.alu === sId));
+            vals.push(...found.map(f => f.val));
+        });
+        return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+    });
+
+    charts.main = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Promedio Grado', data: getSeries('all'), borderColor: '#1d4ed8', borderWidth: 3, tension: 0.4, pointRadius: 0, fill: true, backgroundColor: 'rgba(29,78,216,0.05)' },
+                ...(stu !== 'all' ? [{ label: stu, data: getSeries(stu), borderColor: '#10b981', borderWidth: 4, pointRadius: 6, pointBackgroundColor: '#fff', tension: 0.2 }] : [])
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { min: 1, max: 4, ticks: { stepSize: 1, callback: v => ["","C","B","A","AD"][v] } } },
+            plugins: { legend: { display: stu !== 'all', position: 'top', labels: { font: { size: 11, weight: '700' } } } }
+        }
+    });
+}
+
+function renderDistributionChart(status) {
+    const ctx = document.getElementById('distributionChart').getContext('2d');
+    if (charts.dist) charts.dist.destroy();
+    const dataPoints = [status.AD, status.A, status.B, status.C];
+    charts.dist = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['AD','A','B','C'],
+            datasets: [{ data: dataPoints, backgroundColor: ['#1e40af','#3b82f6','#f59e0b','#ef4444'], borderWidth: 0, borderRadius: 8 }]
+        },
+        options: { cutout: '75%', plugins: { legend: { display: false } } }
+    });
+    document.getElementById('distributionLegend').innerHTML = ['AD','A','B','C'].map((k, i) => `
+        <div class="bg-slate-50 p-2 rounded-xl flex items-center justify-between border border-slate-100">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full" style="background:${colorPalette[k]}"></span>
+                <span class="text-[10px] font-black text-slate-500">${levelMeta[k].label}</span>
+            </div>
+            <span class="text-xs font-black text-slate-900">${dataPoints[i]}</span>
+        </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+//  ANÁLISIS DE ALERTA — MEJORADO
+// ─────────────────────────────────────────────
+function renderFindings(status, stu, areaData) {
+    const total  = status.totalAlumnos;
+    const satisf = status.AD + status.A;
+    const pct    = total > 0 ? Math.round((satisf / total) * 100) : 0;
+    const pctC   = total > 0 ? Math.round((status.C  / total) * 100) : 0;
+    const pctB   = total > 0 ? Math.round((status.B  / total) * 100) : 0;
+
+    // ── Mini KPIs ──
+    const kpis = document.getElementById('alertKpis');
+    kpis.innerHTML = ['AD','A','B','C'].map(k => `
+        <div class="rounded-xl p-3 text-center" style="background:${levelMeta[k].bg}20; border:1px solid ${levelMeta[k].bg}60">
+            <span class="block text-lg font-black" style="color:${levelMeta[k].text}">${status[k]}</span>
+            <span class="block text-[9px] font-black uppercase tracking-wider" style="color:${levelMeta[k].text}90">${k}</span>
+        </div>`).join('');
+
+    // ── Barra de progreso ──
+    document.getElementById('alertPercent').textContent = `${pct}%`;
+    setTimeout(() => {
+        document.getElementById('alertProgressBar').style.width = `${pct}%`;
+        document.getElementById('alertProgressBar').style.background = pct >= 60 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+    }, 200);
+
+    // ── Alertas ──
+    const panel = document.getElementById('findingsPanel');
+    panel.innerHTML = '';
+    const alerts = [];
+
+    if (stu === 'all') {
+        // Alerta crítica: nivel C
+        if (status.C > 0) {
+            const names = status.listC.slice(0, 3).map(o => o.name).join(', ')
+                        + (status.listC.length > 3 ? ` y ${status.listC.length - 3} más` : '');
+            alerts.push({
+                type: 'danger', icon: '⚠️', title: 'Casos en Inicio (C)',
+                msg: `${status.C} estudiante${status.C > 1 ? 's' : ''} (${pctC}%) se encuentran en nivel Inicio. Requieren atención inmediata.`,
+                sub: `Alumnos: ${names}`
+            });
+        }
+        // Rendimiento global
+        alerts.push({
+            type: pct >= 60 ? 'success' : pct >= 40 ? 'warning' : 'danger',
+            icon: pct >= 60 ? '📊' : '📉', title: 'Rendimiento Global',
+            msg: `El ${pct}% del grado alcanza el nivel previsto (Logrado o Sobresaliente).`,
+            sub: pct < 40 ? 'Se recomienda revisar la estrategia pedagógica del área.' : null
+        });
+        // Concentración en B
+        if (status.B > status.A + status.AD) {
+            alerts.push({
+                type: 'warning', icon: '🔔', title: 'Concentración En Proceso',
+                msg: `${status.B} estudiantes (${pctB}%) están en nivel En Proceso. Se recomienda refuerzo diferenciado para avanzar al nivel Logrado.`
+            });
+        }
+        // Logro sobresaliente
+        if (status.AD > 0) {
+            alerts.push({
+                type: 'success', icon: '🌟', title: 'Nivel Sobresaliente (AD)',
+                msg: `${status.AD} estudiante${status.AD > 1 ? 's' : ''} superan el nivel esperado. Considera actividades de enriquecimiento.`
+            });
+        }
+        // Sin nivel C y mayoría lograda
+        if (status.C === 0 && pct >= 70) {
+            alerts.push({
+                type: 'success', icon: '✅', title: 'Progreso Sólido del Grado',
+                msg: `Sin estudiantes en Inicio. El ${pct}% del grado alcanza los niveles esperados o superiores.`
+            });
+        }
+    } else {
+        // ── Vista individual ──
+        // stuAvg = promedio de promedios por competencia (igual que getLatestStatus)
+        const raw = status._raw?.[stu];
+        const stuAvg = raw ? raw.compAvgs.reduce((a,b)=>a+b,0) / raw.compAvgs.length : null;
+        const stuNota = stuAvg !== null ? avgToNota(stuAvg) : null;
+
+        if (stuNota === "C") {
+            alerts.push({
+                type: 'danger', icon: '🔴', title: 'Nivel Inicio',
+                msg: `Promedio actual: ${stuAvg?.toFixed(2)} → Nivel C (Inicio). Requiere apoyo pedagógico inmediato y seguimiento personalizado.`
+            });
+        } else if (stuNota === "B") {
+            alerts.push({
+                type: 'warning', icon: '🟡', title: 'En Proceso',
+                msg: `Promedio actual: ${stuAvg?.toFixed(2)} → Nivel B (En Proceso). El estudiante va avanzando; reforzar con actividades de consolidación.`
+            });
+        } else if (stuNota === "A") {
+            alerts.push({
+                type: 'success', icon: '✅', title: 'Nivel Logrado',
+                msg: `Promedio actual: ${stuAvg?.toFixed(2)} → Nivel A (Logrado). El estudiante cumple con los aprendizajes esperados del ciclo.`
+            });
+        } else if (stuNota === "AD") {
+            alerts.push({
+                type: 'success', icon: '🌟', title: 'Nivel Sobresaliente',
+                msg: `Promedio actual: ${stuAvg?.toFixed(2)} → Nivel AD (Sobresaliente). El estudiante supera los estándares del ciclo.`
+            });
+        }
+
+        // Tendencia: usar allVals ordenados cronológicamente (todas las sesiones de todas las competencias)
+        // Dividir en primera mitad vs segunda mitad para detectar mejora o caída
+        const allVals = (raw?.allVals || []);
+        if (allVals.length >= 2) {
+            const mid      = Math.ceil(allVals.length / 2);
+            const avgEarly = allVals.slice(0, mid).reduce((a,b)=>a+b,0) / mid;
+            const avgLate  = allVals.slice(mid).reduce((a,b)=>a+b,0) / (allVals.length - mid);
+            const diff     = avgLate - avgEarly;
+
+            if (diff > 0.3) {
+                alerts.push({ type: 'success', icon: '📈', title: 'Tendencia Positiva',
+                    msg: `Su rendimiento mejoró de ${avgToNota(avgEarly)} a ${avgToNota(avgLate)} entre la primera y segunda mitad del período. ¡Sigue adelante!` });
+            } else if (diff < -0.3) {
+                alerts.push({ type: 'warning', icon: '📉', title: 'Descenso en Rendimiento',
+                    msg: `Su rendimiento bajó de ${avgToNota(avgEarly)} a ${avgToNota(avgLate)}. Se recomienda revisar factores que puedan estar afectando su aprendizaje.` });
+            } else {
+                alerts.push({ type: 'neutral', icon: '➡️', title: 'Rendimiento Estable',
+                    msg: `Mantiene un nivel consistente (${stuNota}) a lo largo de las sesiones registradas.` });
+            }
+        }
+    }
+
+    alerts.forEach((a, i) => {
+        const div = document.createElement('div');
+        div.className = `alert-card alert-${a.type} fade-in`;
+        div.style.animationDelay = `${i * 80}ms`;
+        div.innerHTML = `
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-sm">${a.icon}</span>
+                <span class="text-[10px] font-black uppercase tracking-wider alert-title-${a.type}">${a.title}</span>
+            </div>
+            <p class="text-xs text-slate-300 font-medium leading-relaxed">${a.msg}</p>
+            ${a.sub ? `<p class="text-[10px] alert-sub mt-1 font-semibold">${a.sub}</p>` : ''}
+        `;
+        panel.appendChild(div);
+    });
+
+    if (alerts.length === 0) {
+        panel.innerHTML = `<div class="alert-card alert-neutral"><p class="text-xs text-slate-400">Sin alertas registradas para esta selección.</p></div>`;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  TARJETA CNEB — MEJORADA
+// ─────────────────────────────────────────────
+function renderStandard(data) {
+    const container = document.getElementById('standardContent');
+    const label     = document.getElementById('standardCompLabel');
+
+    if (activeCompIndex === 'total') {
+        label.textContent = "Referente Curricular";
+        // Mostrar resumen del área completa
+        const areaKey = findAreaKey(data.nombre);
+        if (areaKey) {
+            const comps = Object.values(MASTER_CURRICULUM[areaKey].competencias);
+            container.innerHTML = `
+                <p class="text-xs text-slate-500 mb-4 italic">Selecciona una competencia para ver su estándar. A continuación, las competencias del área para el Ciclo III.</p>
+                <div class="space-y-3">
+                    ${comps.map(c => `
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <div class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0"></div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-700">${c.nombre}</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed line-clamp-2">${c.descripcion}</p>
+                            </div>
+                        </div>`).join('')}
+                </div>`;
+        } else {
+            container.innerHTML = `<p class="text-sm text-slate-400 italic">Seleccione una competencia para visualizar el estándar del CNEB.</p>`;
+        }
+        return;
+    }
+
+    const comps   = Object.values(data.competencias);
+    const cName   = comps[activeCompIndex]?.nombre || "";
+    label.textContent = cName;
+
+    const areaKey = findAreaKey(data.nombre);
+    let cnebData  = null;
+
+    if (areaKey) {
+        const areaComps = MASTER_CURRICULUM[areaKey].competencias;
+        const sKey = Object.keys(areaComps).find(k => cName.toLowerCase().includes(k.toLowerCase()));
+        if (sKey) cnebData = areaComps[sKey];
+        // fallback: buscar por palabras clave
+        if (!cnebData) {
+            const words = cName.toLowerCase().split(' ').filter(w => w.length > 4);
+            for (const [k, v] of Object.entries(areaComps)) {
+                if (words.some(w => v.nombre.toLowerCase().includes(w) || k.includes(w))) { cnebData = v; break; }
+            }
+        }
+    }
+
+    if (!cnebData) {
+        container.innerHTML = `
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                <p class="text-xs text-amber-700 font-semibold">Estándar curricular no encontrado para esta competencia en la base CNEB 2024. Verifica el nombre en el Currículo Nacional.</p>
+            </div>`;
+        return;
+    }
+
+    // Indicador de nivel visual
+    const nivelPips = ['C','B','A','AD'].map(n =>
+        `<div class="nivel-pip active-${n}" title="${levelMeta[n].label}"></div>`
+    ).join('');
+
+    container.innerHTML = `
+        <div class="fade-in">
+            <!-- Ciclo y nivel -->
+            <div class="flex flex-wrap items-center gap-2 mb-4">
+                <span class="cneb-competencia-chip">📅 ${cnebData.ciclo}</span>
+                <span class="cneb-competencia-chip">🎯 Estándar Nacional</span>
+            </div>
+
+            <!-- Descripción del estándar -->
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-5">
+                <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Estándar de Aprendizaje</p>
+                <p class="text-sm font-semibold text-slate-700 leading-relaxed italic">"${cnebData.descripcion}"</p>
+            </div>
+
+            <!-- Capacidades -->
+            <div class="mb-4">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Capacidades que desarrolla</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    ${cnebData.capacidades.map((cap, i) => `
+                        <div class="flex items-start gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">${i+1}</span>
+                            <p class="text-[11px] text-slate-600 font-semibold leading-snug">${cap}</p>
+                        </div>`).join('')}
+                </div>
+            </div>
+
+            <!-- Enfoque pedagógico -->
+            <div class="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <span class="text-lg">💡</span>
+                <div>
+                    <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Enfoque pedagógico</p>
+                    <p class="text-[11px] text-slate-600 font-medium mt-0.5 leading-relaxed">${cnebData.enfoque}</p>
+                </div>
+            </div>
+
+            <!-- Escala de niveles -->
+            <div class="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Escala de calificación</p>
+                <div class="grid grid-cols-4 gap-2">
+                    ${['C','B','A','AD'].map(n => `
+                        <div class="text-center p-2 rounded-lg border" style="background:${levelMeta[n].bg}; border-color:${levelMeta[n].bg}">
+                            <span class="block text-xs font-black" style="color:${levelMeta[n].text}">${n}</span>
+                            <span class="block text-[9px] font-semibold mt-0.5" style="color:${levelMeta[n].text}80">${levelMeta[n].label}</span>
+                        </div>`).join('')}
+                </div>
+            </div>
+        </div>`;
+}
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function findAreaKey(areaName) {
+    const upper = areaName.toUpperCase();
+    return Object.keys(MASTER_CURRICULUM).find(k => upper.includes(k) || k.includes(upper.split(' ')[0])) || null;
+}
+
+function printReport() {
+    // 1. Fecha en pie de página
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('printDate').textContent = `${dateStr} — ${timeStr}`;
+
+    // 2. Desactivar animaciones de Chart.js para captura limpia
+    if (charts.main) { charts.main.options.animation = false; charts.main.update('none'); }
+    if (charts.dist) { charts.dist.options.animation = false; charts.dist.update('none'); }
+
+    // 3. Forzar dimensiones pixel exactas en los canvas para print
+    //    A4 a 96dpi: área imprimible ~754px de ancho (con márgenes 12mm c/lado)
+    //    Trayectoria: ancho completo, 140pt ≈ 187px
+    //    Distribución: 100pt × 100pt ≈ 133px × 133px
+    const mainCanvas = document.getElementById('mainChart');
+    const distCanvas = document.getElementById('distributionChart');
+
+    const origMainW = mainCanvas.style.width,  origMainH = mainCanvas.style.height;
+    const origDistW = distCanvas.style.width,  origDistH = distCanvas.style.height;
+
+    mainCanvas.style.width  = '100%';
+    mainCanvas.style.height = '187px';
+    distCanvas.style.width  = '133px';
+    distCanvas.style.height = '133px';
+
+    if (charts.main) charts.main.resize();
+    if (charts.dist) charts.dist.resize();
+
+    // 4. Pequeño delay para asegurar que Chart.js terminó de redibujar
+    setTimeout(() => {
+        window.print();
+        // 5. Restaurar tamaños originales después de imprimir
+        setTimeout(() => {
+            mainCanvas.style.width  = origMainW;
+            mainCanvas.style.height = origMainH;
+            distCanvas.style.width  = origDistW;
+            distCanvas.style.height = origDistH;
+            if (charts.main) charts.main.resize();
+            if (charts.dist) charts.dist.resize();
+            if (charts.main) { charts.main.options.animation = {}; }
+            if (charts.dist) { charts.dist.options.animation = {}; }
+        }, 1000);
+    }, 300);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
