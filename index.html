@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plataforma de Monitoreo</title>
+    <title>Plataforma I.E. — Monitoreo 2024</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,6 +51,45 @@
 
         @keyframes fadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         .fade-in { animation: fadeInUp 0.35s ease both; }
+
+        /* ── Selector de áreas móvil ── */
+        #mobileAreaBar {
+            display: none;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            gap: 8px;
+            padding: 0 0 4px 0;
+            margin-bottom: 16px;
+        }
+        #mobileAreaBar::-webkit-scrollbar { display: none; }
+        .mobile-area-btn {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 800;
+            border: 2px solid #e2e8f0;
+            background: white;
+            color: #64748b;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.18s;
+        }
+        .mobile-area-btn.active {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+            color: white;
+        }
+        @media (max-width: 1023px) {
+            #mobileAreaBar { display: flex; }
+        }
+        @media print {
+            #mobileAreaBar { display: none !important; }
+        }
         /* ══════════════════════════════════════════
            ESTILOS DE IMPRESIÓN — A4
         ══════════════════════════════════════════ */
@@ -317,8 +356,8 @@
         <div class="mb-10 flex items-center gap-3">
             <div class="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl">P</div>
             <div>
-                <h1 class="font-bold text-sm leading-none text-slate-900">Plataforma de Monitoreo</h1>
-                <p class="text-[10px] text-blue-600 font-black uppercase mt-1 tracking-widest">Prof. Melina Tenorio</p>
+                <h2 class="font-bold text-sm leading-none text-slate-900">Plataforma I.E.</h2>
+                <p class="text-[10px] text-blue-600 font-black uppercase mt-1 tracking-widest">Monitoreo 2024</p>
             </div>
         </div>
         <nav class="space-y-1 flex-1 overflow-y-auto custom-scrollbar" id="areaNav">
@@ -328,6 +367,9 @@
 
     <!-- ══════════════ MAIN CONTENT ══════════════ -->
     <main class="flex-1 p-4 md:p-8 max-w-full overflow-x-hidden">
+
+        <!-- Barra de áreas MÓVIL (solo visible en pantallas < lg) -->
+        <div id="mobileAreaBar" role="tablist" aria-label="Áreas curriculares"></div>
 
         <!-- Header -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 mb-8">
@@ -428,7 +470,7 @@
         </div><!-- /mainGrid -->
     <!-- Pie de página solo visible al imprimir -->
     <div class="print-footer" id="printFooter">
-        Plataforma de Monitoreo — Prof. Melina Tenorio &nbsp;|&nbsp; Generado el <span id="printDate"></span>
+        Plataforma I.E. — Monitoreo 2024 &nbsp;|&nbsp; Generado el <span id="printDate"></span>
     </div>
     </main>
 </div>
@@ -659,8 +701,10 @@ function processData(csvText) {
 //  NAVEGACIÓN
 // ─────────────────────────────────────────────
 function setupNavigation() {
-    const nav = document.getElementById('areaNav');
-    const sel = document.getElementById('alumnoFilter');
+    const nav        = document.getElementById('areaNav');
+    const sel        = document.getElementById('alumnoFilter');
+    const mobileBar  = document.getElementById('mobileAreaBar');
+
     store.alumnos.forEach(a => sel.add(new Option(`👤 ${a}`, a)));
 
     const areaIcons = {
@@ -669,13 +713,30 @@ function setupNavigation() {
     };
 
     Object.keys(store.areas).forEach(id => {
+        const icon = Object.entries(areaIcons).find(([k]) => id.toUpperCase().includes(k))?.[1] || "📖";
+
+        // ── Botón sidebar desktop ──
         const btn = document.createElement('button');
         btn.id = `btn-${id}`;
         btn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-[11px] font-bold text-left mb-1 text-slate-500 hover:bg-slate-50";
         btn.onclick = () => { currentArea = id; activeCompIndex = "total"; renderAll(); };
-        const icon = Object.entries(areaIcons).find(([k]) => id.toUpperCase().includes(k))?.[1] || "📖";
         btn.innerHTML = `<span class="text-base">${icon}</span><span class="truncate">${id}</span>`;
         nav.appendChild(btn);
+
+        // ── Pill móvil ──
+        const pill = document.createElement('button');
+        pill.id = `mpill-${id}`;
+        pill.className = "mobile-area-btn";
+        pill.setAttribute('role', 'tab');
+        pill.onclick = () => { currentArea = id; activeCompIndex = "total"; renderAll(); };
+        // Nombre corto para la pill
+        const shortLabel = id
+            .replace('PERSONAL SOCIAL', 'P. Social')
+            .replace('CIENCIA Y TECNOLOGÍA', 'Ciencias')
+            .replace('EDUCACIÓN RELIGIOSA', 'Religión')
+            .replace('ARTE Y CULTURA', 'Arte');
+        pill.innerHTML = `<span>${icon}</span><span>${shortLabel}</span>`;
+        mobileBar.appendChild(pill);
     });
 
     currentArea = Object.keys(store.areas)[0];
@@ -691,10 +752,19 @@ function renderAll() {
     const stu = document.getElementById('alumnoFilter').value;
 
     // Activar botón de nav
+    // Sidebar desktop: activar botón actual
     document.querySelectorAll('#areaNav button').forEach(b => {
         b.classList.remove('bg-blue-50','text-blue-700','ring-1','ring-blue-100');
     });
     document.getElementById(`btn-${currentArea}`)?.classList.add('bg-blue-50','text-blue-700','ring-1','ring-blue-100');
+
+    // Barra móvil: activar pill actual y hacer scroll hacia ella
+    document.querySelectorAll('.mobile-area-btn').forEach(p => p.classList.remove('active'));
+    const activePill = document.getElementById(`mpill-${currentArea}`);
+    if (activePill) {
+        activePill.classList.add('active');
+        activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
 
     document.getElementById('currentAreaName').textContent = data.nombre;
     const status = getLatestStatus(data, stu);
@@ -804,36 +874,123 @@ function renderGrid(data) {
 // ─────────────────────────────────────────────
 //  GRÁFICOS
 // ─────────────────────────────────────────────
+// Paleta de colores para múltiples competencias
+const compColors = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#0ea5e9','#f97316','#14b8a6'];
+
 function renderMainChart(data, stu) {
     const ctx = document.getElementById('mainChart').getContext('2d');
     if (charts.main) charts.main.destroy();
-    const comps = activeCompIndex === 'total' ? Object.values(data.competencias) : [Object.values(data.competencias)[activeCompIndex]];
-    const maxS  = Math.max(...comps.flatMap(c => c.data.map(r => r.ses)), 1);
+
+    const allComps = Object.values(data.competencias);
+
+    // ── Modo: competencia específica seleccionada ──
+    if (activeCompIndex !== 'total') {
+        const comp = allComps[activeCompIndex];
+        const maxS = Math.max(...comp.data.map(r => r.ses), 1);
+        const labels = Array.from({length: maxS}, (_, i) => `S${i+1}`);
+
+        const getSeriesComp = sId => labels.map((_, i) => {
+            const s = i + 1;
+            const found = comp.data.filter(r => r.ses === s && (sId === 'all' || r.alu === sId));
+            return found.length ? found.reduce((a,b) => a + b.val, 0) / found.length : null;
+        });
+
+        charts.main = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Promedio Grado', data: getSeriesComp('all'), borderColor: '#1d4ed8', borderWidth: 3, tension: 0.4, pointRadius: 0, fill: true, backgroundColor: 'rgba(29,78,216,0.05)' },
+                    ...(stu !== 'all' ? [{ label: stu, data: getSeriesComp(stu), borderColor: '#10b981', borderWidth: 4, pointRadius: 6, pointBackgroundColor: '#fff', tension: 0.2 }] : [])
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { min: 1, max: 4, ticks: { stepSize: 1, callback: v => ["","C","B","A","AD"][v] } } },
+                plugins: { legend: { display: stu !== 'all', position: 'top', labels: { font: { size: 11, weight: '700' } } } }
+            }
+        });
+        return;
+    }
+
+    // ── Modo: Vista General ── una línea por competencia
+    // Cada competencia tiene su propio rango de sesiones → usamos su máximo individual
+    const maxS = Math.max(...allComps.flatMap(c => c.data.map(r => r.ses)), 1);
     const labels = Array.from({length: maxS}, (_, i) => `S${i+1}`);
 
-    const getSeries = sId => labels.map((_, i) => {
-        const s = i + 1;
-        let vals = [];
-        comps.forEach(c => {
-            const found = c.data.filter(r => r.ses === s && (sId === 'all' || r.alu === sId));
-            vals.push(...found.map(f => f.val));
+    // Para cada competencia y sesión: promedio de los alumnos que tienen dato en esa sesión
+    // Si es vista de alumno individual: usamos sus valores; si es grado: promedio del grado
+    const datasets = allComps.map((comp, ci) => {
+        const seriesData = labels.map((_, i) => {
+            const s = i + 1;
+            const rows = comp.data.filter(r => r.ses === s && (stu === 'all' || r.alu === stu));
+            return rows.length ? rows.reduce((a,b) => a + b.val, 0) / rows.length : null;
         });
-        return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+        // Nombre corto de la competencia para la leyenda
+        const shortName = comp.nombre
+            .replace('Resuelve problemas de ', '')
+            .replace('Se comunica oralmente', 'Comunicación oral')
+            .replace('Lee diversos tipos de textos', 'Lectura')
+            .replace('Escribe diversos tipos de textos', 'Escritura')
+            .replace('Construye su identidad', 'Identidad')
+            .replace('Convive y participa', 'Convivencia')
+            .replace('Construye interpretaciones', 'Historia');
+        const color = compColors[ci % compColors.length];
+        return {
+            label: shortName,
+            data: seriesData,
+            borderColor: color,
+            backgroundColor: color + '15',
+            borderWidth: stu !== 'all' ? 3 : 2.5,
+            tension: 0.35,
+            pointRadius: stu !== 'all' ? 5 : 3,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: color,
+            pointBorderWidth: 2,
+            fill: false,
+            spanGaps: true  // conectar puntos aunque haya sesiones sin dato
+        };
     });
+
+    // Si es vista de alumno: agregar línea de promedio del grado como referencia
+    if (stu !== 'all') {
+        const gradeAvgData = labels.map((_, i) => {
+            const s = i + 1;
+            const vals = allComps.flatMap(c => c.data.filter(r => r.ses === s).map(r => r.val));
+            return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+        });
+        datasets.unshift({
+            label: 'Promedio Grado',
+            data: gradeAvgData,
+            borderColor: '#94a3b8',
+            backgroundColor: 'rgba(148,163,184,0.05)',
+            borderWidth: 2,
+            borderDash: [5, 4],
+            tension: 0.35,
+            pointRadius: 0,
+            fill: false,
+            spanGaps: true
+        });
+    }
 
     charts.main = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [
-                { label: 'Promedio Grado', data: getSeries('all'), borderColor: '#1d4ed8', borderWidth: 3, tension: 0.4, pointRadius: 0, fill: true, backgroundColor: 'rgba(29,78,216,0.05)' },
-                ...(stu !== 'all' ? [{ label: stu, data: getSeries(stu), borderColor: '#10b981', borderWidth: 4, pointRadius: 6, pointBackgroundColor: '#fff', tension: 0.2 }] : [])
-            ]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
             scales: { y: { min: 1, max: 4, ticks: { stepSize: 1, callback: v => ["","C","B","A","AD"][v] } } },
-            plugins: { legend: { display: stu !== 'all', position: 'top', labels: { font: { size: 11, weight: '700' } } } }
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { font: { size: 10, weight: '600' }, boxWidth: 14, padding: 10 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ${["","C","B","A","AD"][Math.round(ctx.parsed.y)] || ctx.parsed.y.toFixed(2)}`
+                    }
+                }
+            }
         }
     });
 }
@@ -858,6 +1015,77 @@ function renderDistributionChart(status) {
             </div>
             <span class="text-xs font-black text-slate-900">${dataPoints[i]}</span>
         </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+//  HELPERS PARA NUEVOS INDICADORES
+// ─────────────────────────────────────────────
+
+// Promedio de TODAS las sesiones de un alumno en una competencia específica
+function compAvgForStudent(comp, alu) {
+    const vals = comp.data.filter(r => r.alu === alu).map(r => r.val);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+
+// Promedio del grado en una competencia (todas las sesiones, todos los alumnos)
+function compAvgGrade(comp) {
+    const vals = comp.data.map(r => r.val);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+
+// % alumnos que mejoraron en una competencia (última sesión > primera sesión)
+function pctMejoraronComp(comp) {
+    const alumnosEnComp = [...new Set(comp.data.map(r => r.alu))];
+    if (!alumnosEnComp.length) return null;
+    let mejoraron = 0;
+    alumnosEnComp.forEach(alu => {
+        const registros = comp.data.filter(r => r.alu === alu).sort((a,b)=>a.ses-b.ses);
+        if (registros.length >= 2) {
+            const first = registros[0].val;
+            const last  = registros[registros.length-1].val;
+            if (last > first) mejoraron++;
+        }
+    });
+    return Math.round((mejoraron / alumnosEnComp.length) * 100);
+}
+
+// Nombre corto de competencia para mostrar en alertas
+function shortCompName(nombre) {
+    return nombre
+        .replace('Resuelve problemas de ', '')
+        .replace('Se comunica oralmente en su lengua materna', 'Comunicación oral')
+        .replace('Lee diversos tipos de textos escritos', 'Lectura')
+        .replace('Escribe diversos tipos de textos', 'Escritura')
+        .replace('Construye su identidad', 'Identidad personal')
+        .replace('Convive y participa democráticamente', 'Convivencia')
+        .replace('Construye interpretaciones históricas', 'Historia');
+}
+
+// Mensaje de acción para padres según nivel y tendencia
+function mensajeParaPadres(nota, tendencia) {
+    if (nota === 'AD') {
+        return tendencia === 'sube'
+            ? '🌟 ¡Excelente! Su hijo/a está superando los objetivos del ciclo. Sigan motivando su curiosidad y aprendizaje en casa.'
+            : '🌟 ¡Muy bien! Su hijo/a sobresale en esta área. Puede explorar actividades extra para seguir creciendo.';
+    }
+    if (nota === 'A') {
+        return tendencia === 'sube'
+            ? '✅ ¡Va muy bien! Su hijo/a ha alcanzado el nivel esperado y muestra mejora. Continúen con el acompañamiento en casa.'
+            : tendencia === 'baja'
+            ? '⚠️ Su hijo/a está en el nivel esperado pero con tendencia a bajar. Refuercen la práctica en casa esta semana.'
+            : '✅ Su hijo/a cumple con los aprendizajes esperados. Mantengan los hábitos de estudio en casa.';
+    }
+    if (nota === 'B') {
+        return tendencia === 'sube'
+            ? '📈 Su hijo/a está progresando. Está en camino de alcanzar el nivel esperado. El apoyo en casa es clave para dar el siguiente paso.'
+            : tendencia === 'baja'
+            ? '🔔 Atención: su hijo/a está en proceso y con tendencia a bajar. Se recomienda refuerzo en casa y comunicarse con el docente.'
+            : '📚 Su hijo/a está en proceso. Con práctica constante en casa puede alcanzar el nivel esperado pronto.';
+    }
+    if (nota === 'C') {
+        return '🚨 Su hijo/a necesita apoyo urgente. Por favor comuníquese con el docente para coordinar un plan de refuerzo personalizado.';
+    }
+    return '';
 }
 
 // ─────────────────────────────────────────────
@@ -929,6 +1157,46 @@ function renderFindings(status, stu, areaData) {
                 msg: `Sin estudiantes en Inicio. El ${pct}% del grado alcanza los niveles esperados o superiores.`
             });
         }
+
+        // ── NUEVO: Competencia más difícil del grado ──
+        const compsArr = Object.values(areaData.competencias);
+        if (compsArr.length > 1) {
+            const compConPromedios = compsArr.map(c => ({
+                nombre: shortCompName(c.nombre),
+                avg: compAvgGrade(c)
+            })).filter(c => c.avg !== null);
+
+            if (compConPromedios.length) {
+                compConPromedios.sort((a,b) => a.avg - b.avg);
+                const masDificil = compConPromedios[0];
+                const masFacil   = compConPromedios[compConPromedios.length - 1];
+                alerts.push({
+                    type: avgToNota(masDificil.avg) === 'C' ? 'danger' : 'warning',
+                    icon: '🎯', title: 'Competencia más difícil del grado',
+                    msg: `"${masDificil.nombre}" es la más difícil (promedio ${masDificil.avg.toFixed(2)} → ${avgToNota(masDificil.avg)}). Requiere mayor atención pedagógica.`,
+                    sub: `La más lograda: "${masFacil.nombre}" (promedio ${masFacil.avg.toFixed(2)} → ${avgToNota(masFacil.avg)})`
+                });
+            }
+        }
+
+        // ── NUEVO: % de alumnos que mejoraron por competencia ──
+        if (compsArr.length > 0) {
+            const mejoras = compsArr.map(c => ({
+                nombre: shortCompName(c.nombre),
+                pct: pctMejoraronComp(c)
+            })).filter(c => c.pct !== null);
+
+            if (mejoras.length) {
+                const avgMejora = Math.round(mejoras.reduce((a,b)=>a+b.pct,0)/mejoras.length);
+                const mejorComp = mejoras.reduce((a,b)=>a.pct>=b.pct?a:b);
+                alerts.push({
+                    type: avgMejora >= 50 ? 'success' : 'info',
+                    icon: '📈', title: `Progresión del grado`,
+                    msg: `El ${avgMejora}% del grado mejoró entre la primera y última sesión registrada.`,
+                    sub: `Mayor avance: "${mejorComp.nombre}" (${mejorComp.pct}% de alumnos mejoraron)`
+                });
+            }
+        }
     } else {
         // ── Vista individual ──
         // stuAvg = promedio de promedios por competencia (igual que getLatestStatus)
@@ -958,24 +1226,57 @@ function renderFindings(status, stu, areaData) {
             });
         }
 
-        // Tendencia: usar allVals ordenados cronológicamente (todas las sesiones de todas las competencias)
-        // Dividir en primera mitad vs segunda mitad para detectar mejora o caída
+        // ── Tendencia: primera mitad vs segunda mitad de sesiones ──
         const allVals = (raw?.allVals || []);
+        let tendencia = 'estable';
         if (allVals.length >= 2) {
             const mid      = Math.ceil(allVals.length / 2);
             const avgEarly = allVals.slice(0, mid).reduce((a,b)=>a+b,0) / mid;
             const avgLate  = allVals.slice(mid).reduce((a,b)=>a+b,0) / (allVals.length - mid);
             const diff     = avgLate - avgEarly;
+            tendencia = diff > 0.3 ? 'sube' : diff < -0.3 ? 'baja' : 'estable';
 
-            if (diff > 0.3) {
+            if (tendencia === 'sube') {
                 alerts.push({ type: 'success', icon: '📈', title: 'Tendencia Positiva',
                     msg: `Su rendimiento mejoró de ${avgToNota(avgEarly)} a ${avgToNota(avgLate)} entre la primera y segunda mitad del período. ¡Sigue adelante!` });
-            } else if (diff < -0.3) {
+            } else if (tendencia === 'baja') {
                 alerts.push({ type: 'warning', icon: '📉', title: 'Descenso en Rendimiento',
                     msg: `Su rendimiento bajó de ${avgToNota(avgEarly)} a ${avgToNota(avgLate)}. Se recomienda revisar factores que puedan estar afectando su aprendizaje.` });
             } else {
                 alerts.push({ type: 'neutral', icon: '➡️', title: 'Rendimiento Estable',
                     msg: `Mantiene un nivel consistente (${stuNota}) a lo largo de las sesiones registradas.` });
+            }
+        }
+
+        // ── NUEVO: Competencia más fuerte y más débil del alumno ──
+        const compsIndArr = Object.values(areaData.competencias);
+        if (compsIndArr.length > 1 && stuNota) {
+            const compPromedios = compsIndArr.map(c => ({
+                nombre: shortCompName(c.nombre),
+                avg: compAvgForStudent(c, stu)
+            })).filter(c => c.avg !== null);
+
+            if (compPromedios.length > 1) {
+                compPromedios.sort((a,b) => b.avg - a.avg);
+                const fuerte = compPromedios[0];
+                const debil  = compPromedios[compPromedios.length - 1];
+                alerts.push({
+                    type: 'info', icon: '💪', title: 'Fortaleza y Oportunidad',
+                    msg: `Competencia más fuerte: "${fuerte.nombre}" (${avgToNota(fuerte.avg)}).`,
+                    sub: `Requiere más apoyo en: "${debil.nombre}" (${avgToNota(debil.avg)})`
+                });
+            }
+        }
+
+        // ── NUEVO: Mensaje de acción para padres ──
+        if (stuNota) {
+            const msgPadres = mensajeParaPadres(stuNota, tendencia);
+            if (msgPadres) {
+                alerts.push({
+                    type: stuNota === 'C' ? 'danger' : stuNota === 'B' ? 'warning' : 'success',
+                    icon: '👨‍👩‍👧', title: 'Mensaje para la Familia',
+                    msg: msgPadres
+                });
             }
         }
     }
