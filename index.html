@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plataforma de Monitoreo</title>
+    <title>Plataforma I.E. — Monitoreo 2024</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -356,8 +356,8 @@
         <div class="mb-10 flex items-center gap-3">
             <div class="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl">P</div>
             <div>
-                <h1 class="font-bold text-sm leading-none text-slate-900">Plataforma de Monitoreo</h1>
-                <p class="text-[10px] text-blue-600 font-black uppercase mt-1 tracking-widest">Prof. Melina Tenorio</p>
+                <h2 class="font-bold text-sm leading-none text-slate-900">Plataforma I.E.</h2>
+                <p class="text-[10px] text-blue-600 font-black uppercase mt-1 tracking-widest">Monitoreo 2024</p>
             </div>
         </div>
         <nav class="space-y-1 flex-1 overflow-y-auto custom-scrollbar" id="areaNav">
@@ -419,7 +419,7 @@
             <!-- Distribución Real -->
             <div class="xl:col-span-4 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-200 card-shadow" id="distCard">
                 <h3 class="font-bold text-lg text-slate-800 mb-1">Distribución Real</h3>
-                <p class="text-xs text-slate-400 mb-5">Promedio acumulado de todas las sesiones</p>
+                <p class="text-xs text-slate-400 mb-5" id="distSubtitle">Promedio acumulado de todas las sesiones</p>
                 <!-- id="distChartWrapper" para altura exacta en print -->
                 <div class="h-[200px] flex items-center justify-center mb-5" id="distChartWrapper">
                     <canvas id="distributionChart"></canvas>
@@ -767,6 +767,24 @@ function renderAll() {
     }
 
     document.getElementById('currentAreaName').textContent = data.nombre;
+
+    // Subtítulo dinámico de Distribución Real según contexto
+    const distSubEl = document.getElementById('distSubtitle');
+    if (distSubEl) {
+        const stu = document.getElementById('alumnoFilter').value;
+        if (activeCompIndex === 'total' && stu === 'all') {
+            distSubEl.textContent = 'Promedio acumulado de todas las competencias del área';
+        } else if (activeCompIndex === 'total' && stu !== 'all') {
+            distSubEl.textContent = `Promedio acumulado de ${stu} en todas las competencias`;
+        } else {
+            const compNombre = Object.values(data.competencias)[activeCompIndex]?.nombre || 'esta competencia';
+            if (stu === 'all') {
+                distSubEl.textContent = `Promedio acumulado del grado en: ${compNombre.replace('Resuelve problemas de ','').replace('Se comunica oralmente en su lengua materna','comunicación oral').replace('Lee diversos tipos de textos escritos en su lengua materna','lectura').replace('Escribe diversos tipos de textos en su lengua materna','escritura')}`;
+            } else {
+                distSubEl.textContent = `Promedio acumulado de ${stu} en: ${compNombre.replace('Resuelve problemas de ','').replace('Se comunica oralmente en su lengua materna','comunicación oral').replace('Lee diversos tipos de textos escritos en su lengua materna','lectura').replace('Escribe diversos tipos de textos en su lengua materna','escritura')}`;
+            }
+        }
+    }
     const status = getLatestStatus(data, stu);
     document.getElementById('studentCountLabel').textContent = `${status.totalAlumnos} estudiantes evaluados en este área.`;
 
